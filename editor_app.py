@@ -21,7 +21,6 @@ POSTER_TEMPLATE_PATH = os.path.join(ASSETS_DIR, "Winners Poster.png")
 FONT_PATH = os.path.join(ASSETS_DIR, "ChromiumOne.otf")
 FONT_PATH_EDITION = os.path.join(ASSETS_DIR, "Montserrat.ttf")
 
-# --- POSTER CONFIGURATION ---
 POSTER_EDITION_POS = (0.783, 0.2835)
 EDITION_GRADIENT_TOP = "#f6b715"
 EDITION_GRADIENT_BOTTOM = "#ff7b00"
@@ -32,25 +31,23 @@ POSTER_LAYOUT = {
     3: {"pos": (0.815, 0.579), "width_limit": 0.225, "max_font": 70},
 }
 
-# --- Professional Theme Colors (GUI) ---
 BG_COLOR = "#000000"
 FG_COLOR = "#FFFFFF"
 ACCENT_LIGHT = "#02ccfe"
 ACCENT_DARK = "#000435"
 BUTTON_TEXT = "#000000"
 
-# --- NEW METALLIC & GLOW COLORS ---
 GOLD_TOP = "#ffd700"
 GOLD_BOTTOM = "#e0a800"
-GOLD_GLOW = "#ffec8b"  # Bright yellow-gold glow
+GOLD_GLOW = "#ffec8b"
 
 SILVER_TOP = "#e8e8e8"
 SILVER_BOTTOM = "#8c8c8c"
-SILVER_GLOW = "#ffffff"  # White glow
+SILVER_GLOW = "#ffffff"
 
 BRONZE_TOP = "#e3a857"
 BRONZE_BOTTOM = "#8c5324"
-BRONZE_GLOW = "#ffc880"  # Peachy-orange glow
+BRONZE_GLOW = "#ffc880"
 
 RANK_DATA = {
     1: {"file_key": "1st", "medal": os.path.join(ASSETS_DIR, "medal_1.png"),
@@ -64,16 +61,12 @@ RANK_DATA = {
         "color": "#cd7f32", "suffix": "3rd place edit.png"},
 }
 
-# Sizing Configuration
 MAX_FONT_SIZE_PHOTO = 500
 MEDAL_SCALE_RATIO = 0.35
 LOGO_SCALE_RATIO = 0.50
 TEXT_BOTTOM_PADDING_RATIO = 0.15
 TEXT_SIDE_PADDING_RATIO = 0.03
 SIDE_PADDING_RATIO = -0.03
-
-
-# ===============================================
 
 def load_image(path):
     print(f"Processing file: {path}...")
@@ -84,9 +77,6 @@ def load_image(path):
     except Exception as e:
         print(f"Error reading file {path}: {e}")
         return None
-
-
-# --- Drawing Functions ---
 
 def draw_centered_solid_text(base_image, text, center_x_ratio, center_y_ratio, max_width_ratio, hex_color, max_font=500,
                              font_path=None):
@@ -152,7 +142,6 @@ def draw_gradient_text_centered(base_image, text, center_x_ratio, center_y_ratio
     base_image.paste(gradient_fill, (x_pos - pad, y_pos - pad), gradient_fill)
 
 
-# --- NEW: SHINY & GLOWING TEXT FUNCTION ---
 def draw_shiny_text_bottom(base_image, text, top_color, bottom_color, glow_color):
     """Draws bottom-aligned text with Glow + Shadow + Metallic Gradient."""
     W, H = base_image.size
@@ -161,7 +150,6 @@ def draw_shiny_text_bottom(base_image, text, top_color, bottom_color, glow_color
     font_size = MAX_FONT_SIZE_PHOTO
     font = None
 
-    # 1. Calculate Size & Position
     while font_size > 50:
         try:
             font = ImageFont.truetype(FONT_PATH, font_size)
@@ -174,28 +162,19 @@ def draw_shiny_text_bottom(base_image, text, top_color, bottom_color, glow_color
     x_pos = int((W - text_width) // 2)
     y_pos = int(H - (H * TEXT_BOTTOM_PADDING_RATIO) - text_height)
 
-    # --- LAYER 1: THE GLOW (Back) ---
-    # Dynamic blur radius based on font size
     blur_radius = int(font_size * 0.12)
-    # Padding needed to accommodate the blur spreading out
     glow_pad = blur_radius + 20
     glow_w, glow_h = text_width + glow_pad * 2, text_height + glow_pad * 2
 
-    # Create separate canvas for glow
     glow_canvas = Image.new('RGBA', (glow_w, glow_h), (0, 0, 0, 0))
     draw_glow = ImageDraw.Draw(glow_canvas)
-    # Draw solid text in glow color
     draw_glow.text((glow_pad, glow_pad), text, font=font, fill=glow_color)
-    # Apply strong blur
     glow_blurred = glow_canvas.filter(ImageFilter.GaussianBlur(blur_radius))
-    # Paste glow layer first (offset by padding)
     base_image.paste(glow_blurred, (x_pos - glow_pad, y_pos - glow_pad), glow_blurred)
 
-    # --- LAYER 2: SHARP SHADOW (Middle) ---
     shadow_offset = int(font_size * 0.04)
     draw_dummy.text((x_pos + shadow_offset, y_pos + shadow_offset), text, font=font, fill="#000000")
 
-    # --- LAYER 3: METALLIC GRADIENT (Front) ---
     grad_pad = 10
     mask_w, mask_h = text_width + grad_pad * 2, text_height + grad_pad * 2
     mask_img = Image.new('L', (mask_w, mask_h), 0)
@@ -209,11 +188,9 @@ def draw_shiny_text_bottom(base_image, text, top_color, bottom_color, glow_color
     gradient_fill = grad_source.resize((mask_w, mask_h), resample=Image.Resampling.BILINEAR)
     gradient_fill.putalpha(mask_img)
 
-    # Paste gradient layer last
     base_image.paste(gradient_fill, (x_pos - grad_pad, y_pos - grad_pad), gradient_fill)
 
 
-# --- GUI & Main Logic ---
 def get_inputs(root):
     dialog = tk.Toplevel(root)
     dialog.title("Enter Edition & Teams")
@@ -315,7 +292,6 @@ def main():
         base.paste(r_medal, (W - r_medal.size[0] - sp, my), r_medal)
         base.paste(r_logo, ((W - r_logo.size[0]) // 2, ly), r_logo)
 
-        # DRAW GLOWING METALLIC TEXT
         draw_shiny_text_bottom(base, teams[rank - 1].upper(), cfg["grad_top"], cfg["grad_bottom"], cfg["glow_color"])
 
         base.save(os.path.join(out_dir, cfg["suffix"]))
