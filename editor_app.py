@@ -2,8 +2,12 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
-# ADDED ImageFilter for the blur effect
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter
+
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
+# -------------------------
 
 # =================CONFIGURATION=================
 if getattr(sys, 'frozen', False):
@@ -21,9 +25,13 @@ POSTER_TEMPLATE_PATH = os.path.join(ASSETS_DIR, "Winners Poster.png")
 FONT_PATH = os.path.join(ASSETS_DIR, "ChromiumOne.otf")
 FONT_PATH_EDITION = os.path.join(ASSETS_DIR, "Montserrat.ttf")
 
-POSTER_EDITION_POS = (0.783, 0.2835)
+# --- POSTER CONFIGURATION ---
+POSTER_EDITION_POS = (0.765, 0.2755)
 EDITION_GRADIENT_TOP = "#f6b715"
 EDITION_GRADIENT_BOTTOM = "#ff7b00"
+
+POSTER_SEASON_Y = 0.32
+SEASON_TEXT = "SEZONUL 1"
 
 POSTER_LAYOUT = {
     1: {"pos": (0.50, 0.480), "width_limit": 0.265, "max_font": 80},
@@ -61,12 +69,15 @@ RANK_DATA = {
         "color": "#cd7f32", "suffix": "3rd place edit.png"},
 }
 
-MAX_FONT_SIZE_PHOTO = 500
+MAX_FONT_SIZE_PHOTO = 800
 MEDAL_SCALE_RATIO = 0.35
 LOGO_SCALE_RATIO = 0.50
-TEXT_BOTTOM_PADDING_RATIO = 0.15
-TEXT_SIDE_PADDING_RATIO = 0.03
+TEXT_BOTTOM_PADDING_RATIO = 0.1
+TEXT_SIDE_PADDING_RATIO = 0.09
 SIDE_PADDING_RATIO = -0.03
+
+MEDAL_TOP_PADDING_RATIO = 0
+LOGO_TOP_PADDING_RATIO = 0
 
 def load_image(path):
     print(f"Processing file: {path}...")
@@ -103,15 +114,16 @@ def draw_centered_solid_text(base_image, text, center_x_ratio, center_y_ratio, m
     draw.text((x_pos, y_pos), text, font=font, fill=hex_color)
 
 
-def draw_gradient_text_centered(base_image, text, center_x_ratio, center_y_ratio, max_width_ratio, top_color,
-                                bottom_color, max_font=30, font_path=None):
-    """Gradient text (for Poster Edition #)."""
+def draw_gradient_text_fixed_start(base_image, text, x_ratio, y_ratio, max_width_ratio, top_color, bottom_color,
+                                   max_font=30, font_path=None):
+    """Gradient text with a fixed starting point (for Poster Edition #)."""
     W, H = base_image.size
     if font_path is None: font_path = FONT_PATH
     draw_dummy = ImageDraw.Draw(base_image)
     max_pixels = W * max_width_ratio
     font_size = max_font
     font = None
+
     while font_size > 5:
         try:
             font = ImageFont.truetype(font_path, font_size)
@@ -120,9 +132,10 @@ def draw_gradient_text_centered(base_image, text, center_x_ratio, center_y_ratio
         bbox = draw_dummy.textbbox((0, 0), text, font=font)
         if (bbox[2] - bbox[0]) <= max_pixels: break
         font_size -= 2
+
     text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    x_pos = int((W * center_x_ratio) - (text_width / 2))
-    y_pos = int((H * center_y_ratio) - (text_height / 2))
+    x_pos = int(W * x_ratio)
+    y_pos = int(H * y_ratio)
 
     shadow_offset = max(1, int(font_size * 0.06))
     draw_dummy.text((x_pos + shadow_offset, y_pos + shadow_offset), text, font=font, fill="#000000")
@@ -137,6 +150,50 @@ def draw_gradient_text_centered(base_image, text, center_x_ratio, center_y_ratio
     draw_color = ImageDraw.Draw(color_block)
     draw_color.rectangle((0, 0, 0, 3), fill=top_color)
     draw_color.point((0, 4), fill=bottom_color)
+
+    gradient_fill = color_block.resize((mask_w, mask_h), resample=Image.Resampling.BILINEAR)
+    gradient_fill.putalpha(mask_img)
+    base_image.paste(gradient_fill, (x_pos - pad, y_pos - pad), gradient_fill)
+
+
+def draw_gradient_text_centered(base_image, text, y_ratio, max_width_ratio, top_color, bottom_color, max_font=40,
+                                font_path=None):
+    """Gradient text that is ALWAYS centered horizontally (for 'Sezonul 1')."""
+    W, H = base_image.size
+    if font_path is None: font_path = FONT_PATH
+    draw_dummy = ImageDraw.Draw(base_image)
+    max_pixels = W * max_width_ratio
+    font_size = max_font
+    font = None
+
+    while font_size > 5:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+        except OSError:
+            return
+        bbox = draw_dummy.textbbox((0, 0), text, font=font)
+        if (bbox[2] - bbox[0]) <= max_pixels: break
+        font_size -= 2
+
+    text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+    x_pos = int((W - text_width) // 2)
+    y_pos = int(H * y_ratio)
+
+    shadow_offset = max(1, int(font_size * 0.06))
+    draw_dummy.text((x_pos + shadow_offset, y_pos + shadow_offset), text, font=font, fill="#000000")
+
+    pad = 10
+    mask_w, mask_h = text_width + (pad * 2), text_height + (pad * 2)
+    mask_img = Image.new('L', (mask_w, mask_h), 0)
+    draw_mask = ImageDraw.Draw(mask_img)
+    draw_mask.text((pad, pad), text, font=font, fill=255)
+
+    color_block = Image.new('RGB', (1, 5))
+    draw_color = ImageDraw.Draw(color_block)
+    draw_color.rectangle((0, 0, 0, 3), fill=top_color)
+    draw_color.point((0, 4), fill=bottom_color)
+
     gradient_fill = color_block.resize((mask_w, mask_h), resample=Image.Resampling.BILINEAR)
     gradient_fill.putalpha(mask_img)
     base_image.paste(gradient_fill, (x_pos - pad, y_pos - pad), gradient_fill)
@@ -159,6 +216,7 @@ def draw_shiny_text_bottom(base_image, text, top_color, bottom_color, glow_color
         if (bbox[2] - bbox[0]) <= max_text_width: break
         font_size -= 10
     text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
     x_pos = int((W - text_width) // 2)
     y_pos = int(H - (H * TEXT_BOTTOM_PADDING_RATIO) - text_height)
 
@@ -237,8 +295,14 @@ def process_poster(edition, teams, output_folder):
         poster = Image.open(POSTER_TEMPLATE_PATH).convert("RGBA")
     except FileNotFoundError:
         print("Poster template not found."); return
-    draw_gradient_text_centered(poster, edition, POSTER_EDITION_POS[0], POSTER_EDITION_POS[1], 0.20,
-                                EDITION_GRADIENT_TOP, EDITION_GRADIENT_BOTTOM, max_font=32, font_path=FONT_PATH_EDITION)
+
+    draw_gradient_text_fixed_start(poster, edition, POSTER_EDITION_POS[0], POSTER_EDITION_POS[1], 0.20,
+                                   EDITION_GRADIENT_TOP, EDITION_GRADIENT_BOTTOM, max_font=32,
+                                   font_path=FONT_PATH_EDITION)
+
+    draw_gradient_text_centered(poster, SEASON_TEXT, POSTER_SEASON_Y, 0.40, EDITION_GRADIENT_TOP,
+                                EDITION_GRADIENT_BOTTOM, max_font=42, font_path=FONT_PATH_EDITION)
+
     for i in range(3):
         rank = i + 1;
         config = RANK_DATA[rank];
@@ -252,8 +316,10 @@ def process_poster(edition, teams, output_folder):
 def main():
     root = tk.Tk();
     root.withdraw()
+
     files = filedialog.askopenfilenames(title="Select 3 photos",
-                                        filetypes=[("Images", "*.jpg *.jpeg *.png"), ("All Files", "*.*")])
+                                        filetypes=[("Images", "*.jpg *.jpeg *.png *.heic *.heif"),
+                                                   ("All Files", "*.*")])
     if not files: return
     selected = {}
     for p in files:
@@ -269,6 +335,7 @@ def main():
     edition, teams = data["edition"], data["teams"]
     out_dir = os.path.dirname(selected[1])
     print("\nStarting Processing...")
+
     for rank in range(1, 4):
         cfg = RANK_DATA[rank]
         print(f"--- Processing Rank {rank} ---")
@@ -284,10 +351,12 @@ def main():
             return img.resize((w, int(img.height * (w / img.width))), Image.Resampling.LANCZOS)
 
         r_medal, r_logo = resize(medal, int(W * MEDAL_SCALE_RATIO)), resize(logo, int(W * LOGO_SCALE_RATIO))
-        my, ly = (r_medal.size[1] - r_logo.size[1]) // 2, 0 if r_logo.size[1] < r_medal.size[1] else (r_logo.size[1] -
-                                                                                                      r_medal.size[
-                                                                                                          1]) // 2
+
+        my = int(H * MEDAL_TOP_PADDING_RATIO)
+        ly = int(H * LOGO_TOP_PADDING_RATIO)
+
         sp = int(W * SIDE_PADDING_RATIO)
+
         base.paste(r_medal, (sp, my), r_medal);
         base.paste(r_medal, (W - r_medal.size[0] - sp, my), r_medal)
         base.paste(r_logo, ((W - r_logo.size[0]) // 2, ly), r_logo)
